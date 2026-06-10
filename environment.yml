@@ -1,0 +1,25 @@
+name: coding-study
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - ipykernel
+  - black
+  - requests
+  - numpy
+  - notebook
+  - lxml
+  - scikit-learn
+  - scipy
+  - matplotlib
+  - seaborn
+  - beautifulsoup4
+  - pytest
+  - jupyterlab
+  - statsmodels
+  - pandas
+  - openpyxl
+  - ruff
+prefix: /opt/miniconda3/envs/coding-study
