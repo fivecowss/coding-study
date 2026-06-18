@@ -8,9 +8,18 @@ def contains_duplicate(nums):
     
     return False
 
+def contains_duplicate_v2(nums):
+    return len(nums) != len(set(nums))
+
 if __name__ == "__main__":
-    print(contains_duplicate([1,2,3,1]))
-    print(contains_duplicate([1, 2, 3, 4]))
-    print(contains_duplicate([]))
-    print(contains_duplicate([1]))
-    
+    test_cases = [
+        [1, 2, 3, 1],
+        [1, 2, 3, 4],
+        [],
+        [1],
+        [0, 0],
+    ]
+
+    for nums in test_cases:
+        print(nums, contains_duplicate(nums), contains_duplicate_v2(nums))
+        
