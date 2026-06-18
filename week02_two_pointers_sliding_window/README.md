@@ -39,3 +39,31 @@ Mistakes to watch:
 - Returning zero-based indices.
 - Moving the wrong pointer.
 - Forgetting that the input is already sorted.
+
+## Day 2 — Sorted Two Pointers
+
+### Problems
+
+1. 3Sum
+2. Container With Most Water
+
+---
+
+### Pattern: Sort + Two Pointers
+
+Use this pattern when:
+- the problem asks for pairs or triplets
+- sorting gives a clear direction for pointer movement
+- we need to avoid brute force over all combinations
+
+General structure:
+
+```python
+nums.sort()
+
+for i in range(len(nums)):
+    left = i + 1
+    right = len(nums) - 1
+
+    while left < right:
+        total = nums[i] + nums[left] + nums[right]
