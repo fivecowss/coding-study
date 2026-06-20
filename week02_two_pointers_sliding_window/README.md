@@ -67,3 +67,56 @@ for i in range(len(nums)):
 
     while left < right:
         total = nums[i] + nums[left] + nums[right]
+```
+
+## Day 3 — Sliding Window I
+
+### Problems
+
+1. Best Time to Buy and Sell Stock
+2. Longest Substring Without Repeating Characters
+
+---
+
+### Pattern: One-pass state tracking
+
+Use this pattern when:
+- we scan the array once
+- we only need to remember the best previous state
+- the answer can be updated at each step
+
+Example: Best Time to Buy and Sell Stock
+
+Key variables:
+- `min_price`: the lowest price seen so far
+- `best`: the maximum profit seen so far
+
+Logic:
+- update `min_price`
+- compute current profit
+- update `best`
+
+---
+
+### Pattern: Sliding Window
+
+Use this pattern when:
+- the problem asks about a contiguous substring or subarray
+- we need the longest or shortest valid window
+- we can expand with `right` and shrink with `left`
+
+General template:
+
+```python
+left = 0
+state = set()
+best = 0
+
+for right in range(len(s)):
+    while window_is_invalid:
+        remove s[left] from state
+        left += 1
+
+    add s[right] to state
+    best = max(best, right - left + 1)
+```
