@@ -120,3 +120,35 @@ for right in range(len(s)):
     add s[right] to state
     best = max(best, right - left + 1)
 ```
+
+## Day 4 — Sliding Window II: Frequency Window
+
+### Problems
+
+1. Longest Repeating Character Replacement
+2. Permutation in String
+
+---
+
+### Pattern: Frequency Sliding Window
+
+Use this pattern when:
+- the problem asks about character counts
+- the window validity depends on frequency
+- we need to know how many times each character appears in the current window
+
+General structure:
+
+```python
+left = 0
+count = {}
+
+for right in range(len(s)):
+    add s[right] to count
+
+    while window is invalid:
+        remove s[left] from count
+        left += 1
+
+    update answer
+```
