@@ -152,3 +152,73 @@ for right in range(len(s)):
 
     update answer
 ```
+## Day 5 — Prefix Sum
+
+### Problems
+
+1. Range Sum Query: Immutable
+2. Subarray Sum Equals K
+
+---
+
+### Pattern 1: Prefix Array
+
+Use this pattern when:
+- the array does not change
+- we need to answer multiple range sum queries
+- we want O(1) range sum after O(n) preprocessing
+
+Template:
+
+```python
+prefix = [0]
+
+for x in nums:
+    prefix.append(prefix[-1] + x)
+
+range_sum = prefix[right + 1] - prefix[left]
+```
+
+Why length n + 1?
+- It avoids special handling when `left == 0`.
+- Every query can use the same formula.
+
+---
+
+### Pattern 2: Prefix Sum + Hash Map
+
+Use this pattern when:
+- we need to count subarrays with target sum
+- the array may contain negative numbers
+- sliding window is not reliable
+
+Core equation:
+
+```text
+current_sum - previous_sum = k
+previous_sum = current_sum - k
+```
+
+Template:
+
+```python
+count = {0: 1}
+cur = 0
+ans = 0
+
+for x in nums:
+    cur += x
+    ans += count.get(cur - k, 0)
+    count[cur] = count.get(cur, 0) + 1
+```
+
+Important:
+- `count = {0: 1}` handles subarrays starting at index 0.
+- Check previous prefix sums before recording the current prefix sum.
+- The dict stores frequency, not just existence.
+
+Mistakes to watch:
+- Starting with `count = {}`.
+- Updating `count[cur]` before checking `cur - k`.
+- Using `k - cur` instead of `cur - k`.
+- Trying to use sliding window when negative numbers are allowed.
