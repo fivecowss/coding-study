@@ -22,3 +22,20 @@ stack.append(x)   # push
 stack[-1]         # peek
 stack.pop()       # pop
 ```
+
+## Day 2: Expression Stack and Monotonic Stack
+
+### Evaluate Reverse Polish Notation
+
+Pattern:
+- Use stack to store numbers.
+- If token is a number, push it.
+- If token is an operator, pop two numbers.
+- Apply the operator.
+- Push the result back.
+
+Important:
+```python
+b = stack.pop()
+a = stack.pop()
+```
