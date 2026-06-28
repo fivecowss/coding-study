@@ -184,3 +184,84 @@ Key questions:
 2. What does `mid` represent?
 3. How do we decide which half to discard?
 4. In 2D matrix search, how do we convert `mid` into row and column?
+
+## Day 5: Rotated Binary Search and Binary Search on Answer
+
+### Find Minimum in Rotated Sorted Array
+
+Pattern:
+- Rotated binary search.
+- Use `nums[mid]` and `nums[r]` to decide where the minimum is.
+- If `nums[mid] > nums[r]`, the minimum is on the right.
+- Otherwise, the minimum is at `mid` or on the left.
+
+Template:
+
+```python
+l, r = 0, len(nums) - 1
+
+while l < r:
+    mid = (l + r) // 2
+
+    if nums[mid] > nums[r]:
+        l = mid + 1
+    else:
+        r = mid
+
+return nums[l]
+```
+
+Important:
+- Use `while l < r`.
+- Use `r = mid`, not `r = mid - 1`.
+- `nums[mid]` may be the minimum, so we should not discard it.
+
+---
+
+### Koko Eating Bananas
+
+Pattern:
+- Binary search on answer.
+- Search for the minimum feasible eating speed.
+- Feasibility is monotone.
+
+Search space:
+
+```python
+l, r = 1, max(piles)
+```
+
+Integer ceiling:
+
+```python
+hours += (pile + k - 1) // k
+```
+
+Template:
+
+```python
+l, r = 1, max(piles)
+ans = r
+
+while l <= r:
+    k = (l + r) // 2
+
+    hours = 0
+    for pile in piles:
+        hours += (pile + k - 1) // k
+
+    if hours <= h:
+        ans = k
+        r = k - 1
+    else:
+        l = k + 1
+
+return ans
+```
+
+Key questions:
+1. What is the search space?
+2. What does `mid` represent?
+3. What is the feasibility condition?
+4. If `mid` is feasible, why do we move left?
+5. If `mid` is not feasible, why do we move right?
