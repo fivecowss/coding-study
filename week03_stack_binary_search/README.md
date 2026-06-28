@@ -265,3 +265,97 @@ Key questions:
 3. What is the feasibility condition?
 4. If `mid` is feasible, why do we move left?
 5. If `mid` is not feasible, why do we move right?
+
+## Day 6: sklearn Linear Models and Week 3 Review
+
+### Regression Models
+
+Dataset:
+- `load_diabetes`
+
+Models:
+- `LinearRegression`
+- `Ridge`
+- `Lasso`
+
+Workflow:
+
+```python
+pipe = Pipeline([
+    ("scaler", StandardScaler()),
+    ("model", model),
+])
+
+pipe.fit(X_train, y_train)
+pred = pipe.predict(X_test)
+```
+
+Metrics:
+- MSE
+- R2
+
+Cross-validation:
+
+```python
+cv_scores = cross_val_score(
+    pipe,
+    X,
+    y,
+    cv=5,
+    scoring="r2",
+)
+```
+
+Key ideas:
+- `LinearRegression` has no regularization.
+- `Ridge` uses L2 regularization.
+- `Lasso` uses L1 regularization.
+- `StandardScaler` is important before regularized linear models.
+- `Pipeline` keeps preprocessing and model fitting together.
+
+---
+
+### Classification Model
+
+Dataset:
+- `load_breast_cancer`
+
+Model:
+- `LogisticRegression`
+
+Workflow:
+
+```python
+pipe = Pipeline([
+    ("scaler", StandardScaler()),
+    ("model", LogisticRegression(max_iter=1000)),
+])
+
+pipe.fit(X_train, y_train)
+pred = pipe.predict(X_test)
+prob = pipe.predict_proba(X_test)[:, 1]
+```
+
+Metrics:
+- precision
+- recall
+- f1-score
+- ROC AUC
+
+Cross-validation:
+
+```python
+cv_scores = cross_val_score(
+    pipe,
+    X,
+    y,
+    cv=5,
+    scoring="roc_auc",
+)
+```
+
+Key ideas:
+- Use `stratify=y` for classification train/test split.
+- `pred` stores predicted class labels.
+- `prob` stores predicted probabilities.
+- ROC AUC uses probability scores, not hard class labels.
