@@ -13,7 +13,6 @@
 
 ---
 
-```
 
 ### New pandas concepts
 
@@ -33,11 +32,7 @@
 
 ## Day 1 SQL File
 
-File:
 
-```text
-week04_ds_coding/day01_sql_basic_review.sql
-```
 
 ### SQL concepts
 
