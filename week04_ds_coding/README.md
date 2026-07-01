@@ -323,11 +323,6 @@ Meaning:
 
 ## Day 2 SQL File
 
-File:
-
-```text
-week04_ds_coding/day02_sql_join_review.sql
-```
 
 ### SQL join patterns
 
