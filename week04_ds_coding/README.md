@@ -897,3 +897,377 @@ interval = (
     sorted_values[upper_index],
 )
 ```
+
+## Day 5: Model Selection, Cross-Validation, Leakage
+
+### Train/Test Split
+
+A train/test split separates data into:
+
+- training set: used to fit the model
+- test set: used once for final evaluation
+
+The test set should not be used for:
+
+- choosing hyperparameters
+- selecting features
+- fitting preprocessing transformations
+- deciding between many modeling alternatives repeatedly
+
+Basic structure:
+
+```python
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y,
+)
+```
+
+`stratify=y` helps preserve the class distribution in classification problems.
+
+---
+
+### Cross-Validation
+
+Cross-validation evaluates model performance across multiple train/validation splits.
+
+Basic structure:
+
+```python
+scores = cross_val_score(
+    model,
+    X_train,
+    y_train,
+    cv=5,
+    scoring="roc_auc",
+)
+```
+
+Interpretation:
+
+```python
+scores
+```
+
+contains one score per fold.
+
+```python
+scores.mean()
+```
+
+summarizes average validation performance.
+
+Cross-validation should be performed on the training data, not on the held-out test set.
+
+---
+
+### Pipeline
+
+A Pipeline chains preprocessing and modeling steps.
+
+Example:
+
+```python
+pipe = Pipeline([
+    ("scaler", StandardScaler()),
+    ("model", LogisticRegression(max_iter=2000)),
+])
+```
+
+This means:
+
+1. Fit `StandardScaler` on the training data.
+2. Transform the training data.
+3. Fit `LogisticRegression`.
+4. For test data, use the scaler learned from training data.
+
+Pipeline helps avoid leakage because preprocessing is fit only inside the appropriate training subset.
+
+---
+
+### Data Leakage
+
+Data leakage happens when information from validation/test data enters the training process.
+
+Wrong workflow:
+
+```python
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y)
+```
+
+Problem:
+
+- `StandardScaler` was fit on the entire dataset.
+- The mean and standard deviation include test-set information.
+- The model evaluation can become overly optimistic.
+
+Correct workflow:
+
+```python
+X_train, X_test, y_train, y_test = train_test_split(X, y)
+
+pipe = Pipeline([
+    ("scaler", StandardScaler()),
+    ("model", LogisticRegression()),
+])
+
+pipe.fit(X_train, y_train)
+pipe.predict(X_test)
+```
+
+---
+
+### GridSearchCV
+
+GridSearchCV searches over hyperparameter values using cross-validation.
+
+Example:
+
+```python
+param_grid = {
+    "model__C": [0.01, 0.1, 1.0, 10.0],
+}
+
+grid = GridSearchCV(
+    estimator=pipe,
+    param_grid=param_grid,
+    scoring="roc_auc",
+    cv=5,
+)
+
+grid.fit(X_train, y_train)
+```
+
+Important attributes:
+
+```python
+grid.best_params_
+grid.best_score_
+grid.best_estimator_
+```
+
+Meaning:
+
+- `best_params_`: best hyperparameter combination
+- `best_score_`: best mean cross-validation score
+- `best_estimator_`: fitted pipeline with the best selected parameters
+
+---
+
+### Pipeline Parameter Naming
+
+Inside a Pipeline, parameters use this format:
+
+```text
+step_name__parameter_name
+```
+
+Example:
+
+```python
+"model__C"
+```
+
+means:
+
+- step name: `"model"`
+- parameter name inside LogisticRegression: `"C"`
+
+---
+
+### Final Test Evaluation
+
+After model selection:
+
+```python
+best_model = grid.best_estimator_
+
+pred = best_model.predict(X_test)
+prob = best_model.predict_proba(X_test)[:, 1]
+```
+
+Useful metrics:
+
+```python
+accuracy_score(y_test, pred)
+roc_auc_score(y_test, prob)
+classification_report(y_test, pred)
+```
+
+Use the final test set once after:
+
+1. preprocessing choice
+2. model choice
+3. hyperparameter choice
+4. metric choice
+
+are already fixed.
+
+---
+
+## Algorithm Review: Random Pick with Weight
+
+### Problem
+
+Given weights:
+
+```python
+w = [1, 3, 2]
+```
+
+Implement `pick_index()` so that:
+
+```text
+P(index 0) = 1 / 6
+P(index 1) = 3 / 6
+P(index 2) = 2 / 6
+```
+
+---
+
+### Prefix Sum Idea
+
+Build cumulative weights:
+
+```python
+w = [1, 3, 2]
+prefix = [1, 4, 6]
+```
+
+This partitions the target range:
+
+```text
+target 1       -> index 0
+target 2,3,4   -> index 1
+target 5,6     -> index 2
+```
+
+---
+
+### Binary Search Goal
+
+Generate:
+
+```python
+target = random.randint(1, total)
+```
+
+Then find the first index where:
+
+```python
+prefix[i] >= target
+```
+
+This is a lower-bound binary search.
+
+---
+
+### Example Running Steps
+
+```text
+weights = [1, 3, 2]
+prefix = [1, 4, 6]
+target = 5
+```
+
+Initial:
+
+```text
+left = 0
+right = 2
+answer = -1
+```
+
+Step 1:
+
+```text
+mid = 1
+prefix[1] = 4
+4 >= 5? No.
+left = mid + 1 = 2
+```
+
+Step 2:
+
+```text
+mid = 2
+prefix[2] = 6
+6 >= 5? Yes.
+answer = 2
+right = mid - 1 = 1
+```
+
+Stop:
+
+```text
+left = 2
+right = 1
+```
+
+Return:
+
+```text
+answer = 2
+```
+
+So target 5 maps to index 2.
+
+---
+
+### Common Mistakes
+
+#### Mistake 1: using `random.randint(0, total)`
+
+If the prefix intervals are based on 1 through total, use:
+
+```python
+random.randint(1, total)
+```
+
+not:
+
+```python
+random.randint(0, total)
+```
+
+#### Mistake 2: searching for exact equality
+
+Wrong idea:
+
+```python
+prefix[mid] == target
+```
+
+Correct idea:
+
+```python
+prefix[mid] >= target
+```
+
+We are not searching for an exact value. We are searching for the first cumulative range that contains the target.
+
+#### Mistake 3: forgetting that larger weight means larger interval width
+
+For:
+
+```python
+w = [1, 3, 2]
+```
+
+index 1 should be selected more often because it owns three targets:
+
+```text
+2, 3, 4
+```
+
+while index 0 owns only one target:
+
+```text
+1
+```
