@@ -1092,3 +1092,146 @@ git commit -m "week5 day2 day3 joins retention conversion metrics"
 
 git push
 ```
+## Day 4: experiment statistics and probability simulation
+
+### Key concepts
+
+#### Bernoulli conversion
+
+```python
+converted = 1  # user converted
+converted = 0  # user did not convert
+```
+
+For 0/1 conversion data:
+
+```python
+conversion_rate = mean(converted)
+```
+
+#### Difference in conversion rates
+
+```python
+p_control = x_control / n_control
+p_treatment = x_treatment / n_treatment
+
+diff = p_treatment - p_control
+```
+
+#### Two-proportion z-test
+
+```python
+pooled = (x_control + x_treatment) / (n_control + n_treatment)
+
+se = math.sqrt(
+    pooled * (1 - pooled) * (1 / n_control + 1 / n_treatment)
+)
+
+z = diff / se
+```
+
+#### Two-sided p-value
+
+```python
+p_value = 2 * (1 - normal_cdf(abs(z)))
+```
+
+#### Bootstrap confidence interval
+
+```python
+control_sample = [random.choice(control) for _ in range(len(control))]
+treatment_sample = [random.choice(treatment) for _ in range(len(treatment))]
+
+diff = statistics.mean(treatment_sample) - statistics.mean(control_sample)
+```
+
+### Reflection
+
+---
+
+## Day 5: sklearn cross-validation, GridSearchCV, and metrics
+
+### Goal
+
+- Build a clean sklearn modeling workflow.
+- Use train/test split.
+- Use Pipeline to avoid preprocessing leakage.
+- Use cross-validation for model selection.
+- Use GridSearchCV for hyperparameter tuning.
+- Interpret classification metrics.
+
+### Key concepts
+
+#### Train/test split
+
+```python
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y,
+)
+```
+
+#### Pipeline
+
+```python
+pipe = Pipeline([
+    ("scaler", StandardScaler()),
+    ("model", LogisticRegression(max_iter=3000)),
+])
+```
+
+Pipeline helps ensure preprocessing is fit only on training folds during cross-validation.
+
+#### Cross-validation
+
+```python
+cv_scores = cross_val_score(
+    pipe,
+    X_train,
+    y_train,
+    cv=5,
+    scoring="roc_auc",
+)
+```
+
+#### GridSearchCV
+
+```python
+param_grid = {
+    "model__C": [0.01, 0.1, 1.0, 10.0],
+}
+
+grid = GridSearchCV(
+    estimator=pipe,
+    param_grid=param_grid,
+    scoring="roc_auc",
+    cv=5,
+)
+
+grid.fit(X_train, y_train)
+```
+
+#### Final test evaluation
+
+```python
+best_model = grid.best_estimator_
+
+pred = best_model.predict(X_test)
+prob = best_model.predict_proba(X_test)[:, 1]
+
+print(confusion_matrix(y_test, pred))
+print(classification_report(y_test, pred))
+print(roc_auc_score(y_test, prob))
+```
+
+### Metric interpretation
+
+```text
+precision = among predicted positives, how many are truly positive?
+recall = among actual positives, how many did we find?
+F1 = harmonic mean of precision and recall
+ROC AUC = ranking quality across thresholds
+```
