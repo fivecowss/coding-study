@@ -325,4 +325,305 @@ Use when:
 - scheduling meetings/resources
 
 ---
+## Threshold Tuning, Calibration, and Imbalanced Metrics
 
+### Predicted Probability vs Class Label
+
+A classifier can output predicted probabilities.
+
+```python
+prob = model.predict_proba(X_test)[:, 1]
+```
+
+A threshold converts probabilities into class labels.
+
+```python
+pred = (prob >= 0.5).astype(int)
+```
+
+The default threshold is often 0.5, but it is not always the best decision threshold.
+
+---
+
+## Confusion Matrix
+
+Binary classification outcomes:
+
+```text
+TP: actual 1, predicted 1
+TN: actual 0, predicted 0
+FP: actual 0, predicted 1
+FN: actual 1, predicted 0
+```
+
+Python:
+
+```python
+from sklearn.metrics import confusion_matrix
+
+tn, fp, fn, tp = confusion_matrix(y_true, pred).ravel()
+```
+
+---
+
+## Precision
+
+Precision answers:
+
+```text
+Among predicted positives, how many are truly positive?
+```
+
+Formula:
+
+```text
+precision = TP / (TP + FP)
+```
+
+Python:
+
+```python
+from sklearn.metrics import precision_score
+
+precision = precision_score(y_true, pred)
+```
+
+Use precision when false positives are expensive.
+
+Examples:
+
+- fraud alert investigation
+- spam detection
+- candidate selection
+- unnecessary medical follow-up
+
+---
+
+## Recall
+
+Recall answers:
+
+```text
+Among actual positives, how many did the model find?
+```
+
+Formula:
+
+```text
+recall = TP / (TP + FN)
+```
+
+Python:
+
+```python
+from sklearn.metrics import recall_score
+
+recall = recall_score(y_true, pred)
+```
+
+Use recall when false negatives are expensive.
+
+Examples:
+
+- disease screening
+- fraud detection
+- churn detection
+- risk detection
+
+---
+
+## F1 Score
+
+F1 balances precision and recall.
+
+```text
+F1 = 2 * precision * recall / (precision + recall)
+```
+
+Python:
+
+```python
+from sklearn.metrics import f1_score
+
+f1 = f1_score(y_true, pred)
+```
+
+Use F1 when:
+
+- classes are imbalanced
+- both false positives and false negatives matter
+- a single threshold-dependent metric is needed
+
+---
+
+## ROC AUC
+
+ROC AUC uses predicted scores or probabilities.
+
+```python
+from sklearn.metrics import roc_auc_score
+
+roc_auc = roc_auc_score(y_test, prob)
+```
+
+ROC AUC is threshold-independent.
+
+It measures ranking quality rather than performance at one fixed threshold.
+
+---
+
+## Threshold Tuning
+
+Evaluate several thresholds.
+
+```python
+thresholds = [0.2, 0.3, 0.5, 0.7, 0.8]
+
+for threshold in thresholds:
+    pred = (prob >= threshold).astype(int)
+    precision = precision_score(y_true, pred)
+    recall = recall_score(y_true, pred)
+    f1 = f1_score(y_true, pred)
+```
+
+General pattern:
+
+```text
+Lower threshold:
+- more predicted positives
+- usually higher recall
+- usually lower precision
+
+Higher threshold:
+- fewer predicted positives
+- usually lower recall
+- usually higher precision
+```
+
+This is not guaranteed in every tiny sample, but it is the usual tradeoff.
+
+---
+
+## Expected Cost
+
+If false positives and false negatives have different costs, choose threshold by cost.
+
+```python
+def expected_cost(y_true, prob, threshold, fp_cost=1.0, fn_cost=5.0):
+    pred = (prob >= threshold).astype(int)
+
+    fp = ((pred == 1) & (y_true == 0)).sum()
+    fn = ((pred == 0) & (y_true == 1)).sum()
+
+    return fp_cost * fp + fn_cost * fn
+```
+
+Use this when:
+
+- false negatives are more expensive than false positives
+- false positives are more expensive than false negatives
+- business decision cost is known
+
+---
+
+## Calibration
+
+Calibration asks:
+
+```text
+When the model predicts 0.8 probability,
+are about 80% of those cases truly positive?
+```
+
+Use calibrated probabilities when probabilities are used as risk scores.
+
+```python
+from sklearn.calibration import CalibratedClassifierCV
+
+calibrated_model = CalibratedClassifierCV(
+    estimator=base_model,
+    method="sigmoid",
+    cv=5,
+)
+```
+
+Calibration matters for:
+
+- risk scoring
+- expected cost
+- threshold tuning
+- decision policy
+- probability interpretation
+
+---
+
+## SQL Threshold Metrics
+
+Given a prediction table:
+
+```text
+id | y_true | prob
+```
+
+Create threshold-level predictions:
+
+```sql
+WITH thresholds AS (
+    SELECT 0.3 AS threshold
+    UNION ALL SELECT 0.5
+    UNION ALL SELECT 0.7
+),
+scored AS (
+    SELECT
+        t.threshold,
+        p.id,
+        p.y_true,
+        p.prob,
+        CASE
+            WHEN p.prob >= t.threshold THEN 1
+            ELSE 0
+        END AS pred
+    FROM predictions p
+    CROSS JOIN thresholds t
+)
+SELECT *
+FROM scored;
+```
+
+Compute confusion matrix:
+
+```sql
+SELECT
+    threshold,
+    SUM(CASE WHEN y_true = 1 AND pred = 1 THEN 1 ELSE 0 END) AS tp,
+    SUM(CASE WHEN y_true = 0 AND pred = 1 THEN 1 ELSE 0 END) AS fp,
+    SUM(CASE WHEN y_true = 0 AND pred = 0 THEN 1 ELSE 0 END) AS tn,
+    SUM(CASE WHEN y_true = 1 AND pred = 0 THEN 1 ELSE 0 END) AS fn
+FROM scored
+GROUP BY threshold;
+```
+
+---
+
+## Statistical Power Simulation
+
+Power is the probability of detecting a real effect.
+
+Simple simulation idea:
+
+```python
+for _ in range(n_sim):
+    simulate control conversions
+    simulate treatment conversions
+    compute z score
+    count whether abs(z) >= 1.96
+```
+
+Power increases when:
+
+- sample size increases
+- effect size increases
+- noise decreases
+- significance threshold is less strict
+
+---
