@@ -627,3 +627,198 @@ Power increases when:
 - significance threshold is less strict
 
 ---
+
+## Logistic Regression from Scratch
+
+### Linear Score
+
+Logistic regression first computes a linear score.
+
+```python
+z = X @ w + b
+```
+
+Shapes:
+
+```text
+X: (n_samples, n_features)
+w: (n_features,)
+b: scalar
+z: (n_samples,)
+```
+
+---
+
+## Sigmoid Function
+
+Sigmoid converts a real-valued score into a probability.
+
+```python
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+```
+
+Interpretation:
+
+```text
+large positive z -> probability close to 1
+z = 0            -> probability 0.5
+large negative z -> probability close to 0
+```
+
+---
+
+## Binary Cross Entropy / Log Loss
+
+```python
+def binary_cross_entropy(y_true, y_prob, eps=1e-12):
+    y_prob = np.clip(y_prob, eps, 1 - eps)
+
+    return -np.mean(
+        y_true * np.log(y_prob)
+        + (1 - y_true) * np.log(1 - y_prob)
+    )
+```
+
+Why clipping is needed:
+
+```text
+log(0) is undefined.
+np.clip prevents probabilities from becoming exactly 0 or 1.
+```
+
+---
+
+## Logistic Regression Gradients
+
+For binary logistic regression:
+
+```python
+error = y_prob - y
+grad_w = X.T @ error / n
+grad_b = np.mean(error)
+```
+
+Parameter update:
+
+```python
+w -= learning_rate * grad_w
+b -= learning_rate * grad_b
+```
+
+---
+
+## Gradient Descent Loop
+
+```python
+for step in range(n_steps):
+    z = X @ w + b
+    y_prob = sigmoid(z)
+
+    loss = binary_cross_entropy(y, y_prob)
+
+    grad_w, grad_b = compute_gradients(X, y, y_prob)
+
+    w -= learning_rate * grad_w
+    b -= learning_rate * grad_b
+```
+
+Key idea:
+
+```text
+1. predict
+2. compute loss
+3. compute gradient
+4. update parameters
+5. repeat
+```
+
+---
+
+## Manual Logistic Regression vs sklearn
+
+Manual implementation:
+
+- useful for understanding
+- no regularization unless added manually
+- simple gradient descent
+- limited numerical stability
+
+sklearn LogisticRegression:
+
+- optimized solvers
+- regularization
+- convergence checks
+- multiclass support
+- stable implementation
+
+Example:
+
+```python
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+
+model = Pipeline([
+    ("scaler", StandardScaler()),
+    ("model", LogisticRegression(max_iter=3000)),
+])
+```
+
+---
+
+## PyTorch Autograd
+
+PyTorch can automatically compute gradients.
+
+```python
+import torch
+
+x = torch.tensor(2.0)
+y = torch.tensor(5.0)
+w = torch.tensor(1.0, requires_grad=True)
+
+y_hat = w * x
+loss = (y_hat - y) ** 2
+
+loss.backward()
+
+print(w.grad)
+```
+
+Interpretation:
+
+```text
+requires_grad=True tells PyTorch to track operations involving w.
+loss.backward() computes d loss / d w.
+w.grad stores the gradient.
+```
+
+---
+
+## Parameter Update in PyTorch
+
+```python
+learning_rate = 0.1
+
+with torch.no_grad():
+    w -= learning_rate * w.grad
+
+w.grad.zero_()
+```
+
+Why `torch.no_grad()`?
+
+```text
+The parameter update itself should not be part of the computational graph.
+```
+
+Why `zero_()`?
+
+```text
+PyTorch accumulates gradients by default.
+Clear old gradients before the next backward pass.
+```
+
+---
+
