@@ -14,7 +14,7 @@ A greedy solution is not simply an algorithm that sorts the input. A valid greed
 
 A greedy approach may be appropriate when:
 
-* The problem asks for a minimum or maximum.
+* The problem asks for a minimum or maximum.s
 * Items can be ordered by a meaningful priority.
 * Each decision changes the set of future available choices.
 * A local decision preserves as many future options as possible.
