@@ -908,3 +908,111 @@ Use when:
 - decisions affect identifiable operational segments
 - model monitoring requires segment-level diagnostics
 ```
+
+## Days 2–3: Dynamic Programming, Model Diagnosis, and Statistical Resampling
+
+### One-Dimensional Dynamic Programming
+
+Dynamic programming is useful when a problem contains overlapping subproblems and the solution to a larger state can be expressed using smaller states.
+
+Before coding, define:
+
+* the meaning of the state,
+* the transition,
+* the base case,
+* and the final state to return.
+
+For House Robber, the decision at each house is to either take the current value and combine it with the best result two positions back, or skip the current value and keep the best previous result.
+
+```python
+def rob(nums: list[int]) -> int:
+    prev_two = 0
+    prev_one = 0
+
+    for money in nums:
+        current = max(
+            prev_two + money,
+            prev_one,
+        )
+
+        prev_two = prev_one
+        prev_one = current
+
+    return prev_one
+```
+
+For Coin Change, `dp[value]` stores the minimum number of coins required to create `value`.
+
+```python
+def coin_change(coins: list[int], amount: int) -> int:
+    unreachable = amount + 1
+
+    dp = [unreachable] * (amount + 1)
+    dp[0] = 0
+
+    for current_amount in range(1, amount + 1):
+        for coin in coins:
+            if coin <= current_amount:
+                dp[current_amount] = min(
+                    dp[current_amount],
+                    dp[current_amount - coin] + 1,
+                )
+
+    return -1 if dp[amount] == unreachable else dp[amount]
+```
+
+The House Robber solution uses constant memory because the current state only depends on the previous two states. Coin Change requires a table because each amount may depend on several earlier amounts.
+
+### Learning Curves and Model Diagnosis
+
+A learning curve compares training and validation performance over different training-set sizes.
+
+```python
+train_sizes, train_scores, validation_scores = learning_curve(
+    estimator=model,
+    X=X,
+    y=y,
+    train_sizes=np.linspace(0.2, 1.0, 5),
+    cv=cv,
+    scoring="roc_auc",
+)
+```
+
+When training and validation scores are both low, the model may be underfitting. When the training score is high but the validation score is substantially lower, the model may be overfitting. If the validation score continues to improve as the training size increases, additional data may improve generalization.
+
+Preprocessing must remain inside a Pipeline so that each cross-validation training fold fits its own preprocessing parameters.
+
+### Bootstrap, Permutation Tests, and Power
+
+Bootstrap resampling estimates uncertainty by repeatedly drawing observations from the original sample with replacement.
+
+```python
+sample = rng.choice(
+    data,
+    size=len(data),
+    replace=True,
+)
+```
+
+A bootstrap distribution can be used to estimate a standard error or confidence interval for a statistic.
+
+A permutation test evaluates a null hypothesis by repeatedly rearranging group assignments and comparing the observed statistic with the resulting null distribution.
+
+```python
+result = permutation_test(
+    data=(control, treatment),
+    statistic=mean_difference,
+    permutation_type="independent",
+    alternative="two-sided",
+)
+```
+
+Bootstrap and permutation tests serve different purposes:
+
+* bootstrap estimates sampling uncertainty,
+* permutation tests evaluate a null hypothesis,
+* and power analysis estimates the sample size needed to detect a specified effect.
+
+Power depends on the effect size, sample size, significance level, variability, and study design. Smaller target effects generally require larger samples.
+
+For independent A/B-test groups, the resampling unit and analysis unit must match the unit of randomization. Repeated observations from the same user should not be treated as independent users without an appropriate clustered or user-level analysis.
