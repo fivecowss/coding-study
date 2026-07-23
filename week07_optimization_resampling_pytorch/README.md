@@ -1016,3 +1016,88 @@ Bootstrap and permutation tests serve different purposes:
 Power depends on the effect size, sample size, significance level, variability, and study design. Smaller target effects generally require larger samples.
 
 For independent A/B-test groups, the resampling unit and analysis unit must match the unit of randomization. Repeated observations from the same user should not be treated as independent users without an appropriate clustered or user-level analysis.
+
+## Day 4: PyTorch Training Fundamentals
+
+PyTorch training follows a repeated forward, loss, backward, and update process. A model receives a batch of features and returns logits. The loss function compares those logits with the targets, `loss.backward()` computes parameter gradients, and the optimizer updates the parameters.
+
+```python
+model.train()
+
+for X_batch, y_batch in train_loader:
+    optimizer.zero_grad(set_to_none=True)
+
+    logits = model(X_batch)
+    loss = loss_fn(logits, y_batch)
+
+    loss.backward()
+    optimizer.step()
+```
+
+For binary classification, `BCEWithLogitsLoss` should receive raw logits and floating-point targets with matching shapes. Sigmoid is applied only when logits must be converted to probabilities for prediction or evaluation.
+
+```python
+loss_fn = nn.BCEWithLogitsLoss()
+
+logits = model(X_batch)
+loss = loss_fn(logits, y_batch)
+
+probability = torch.sigmoid(logits)
+prediction = (probability >= 0.5).float()
+```
+
+`TensorDataset` groups feature and target tensors, while `DataLoader` returns mini-batches. Training data are shuffled, but validation and test data do not need to be shuffled.
+
+```python
+train_dataset = TensorDataset(
+    X_train_tensor,
+    y_train_tensor,
+)
+
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=32,
+    shuffle=True,
+    num_workers=0,
+)
+```
+
+A basic binary classifier may use one hidden layer and one output logit.
+
+```python
+class BinaryClassifier(nn.Module):
+    def __init__(self, n_features: int):
+        super().__init__()
+
+        self.network = nn.Sequential(
+            nn.Linear(n_features, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1),
+        )
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        return self.network(X)
+```
+
+Training and evaluation modes must be separated. Evaluation uses `model.eval()` and disables gradient recording.
+
+```python
+model.eval()
+
+with torch.no_grad():
+    logits = model(X_validation)
+    probability = torch.sigmoid(logits)
+```
+
+Preprocessing must be fitted only on the training data.
+
+```python
+scaler = StandardScaler()
+
+X_train = scaler.fit_transform(X_train)
+X_validation = scaler.transform(X_validation)
+X_test = scaler.transform(X_test)
+```
+
+When debugging training, check tensor shapes, tensor dtypes, feature scaling, gradient reset, backward calculation, optimizer updates, learning rate, and data alignment. Training loss and validation loss should be monitored together because decreasing training loss alone does not establish good generalization.
+
