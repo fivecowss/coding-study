@@ -292,3 +292,242 @@ probabilities = model.predict_proba(
 - filling every missing value with zero
 - evaluating only overall metrics
 - using a feature unavailable at prediction time
+
+## Nested Cross-Validation and Model Diagnostics
+
+Nested cross-validation separates hyperparameter selection from performance estimation.
+
+* The inner CV loop selects hyperparameters.
+* The outer CV loop evaluates the complete model-selection procedure.
+* A final held-out test set should remain untouched until modeling decisions are complete.
+
+```python
+inner_cv = StratifiedKFold(
+    n_splits=4,
+    shuffle=True,
+    random_state=42,
+)
+
+outer_cv = StratifiedKFold(
+    n_splits=5,
+    shuffle=True,
+    random_state=43,
+)
+
+search = GridSearchCV(
+    estimator=model,
+    param_grid={
+        "classifier__C": [
+            0.01,
+            0.1,
+            1.0,
+            10.0,
+        ],
+    },
+    scoring="roc_auc",
+    cv=inner_cv,
+)
+
+nested_scores = cross_val_score(
+    estimator=search,
+    X=X,
+    y=y,
+    scoring="roc_auc",
+    cv=outer_cv,
+)
+```
+
+### Subgroup Diagnostics
+
+Overall model performance can hide poor performance in individual subgroups.
+
+Useful subgroup summaries include:
+
+* sample size
+* target prevalence
+* precision
+* recall
+* F1
+* mean predicted probability
+
+```python
+for group, frame in results.groupby(
+    "acquisition_channel",
+    dropna=False,
+):
+    row = {
+        "group": group,
+        "n": len(frame),
+        "positive_rate": frame["y_true"].mean(),
+        "precision": precision_score(
+            frame["y_true"],
+            frame["y_pred"],
+            zero_division=0,
+        ),
+        "recall": recall_score(
+            frame["y_true"],
+            frame["y_pred"],
+            zero_division=0,
+        ),
+        "f1": f1_score(
+            frame["y_true"],
+            frame["y_pred"],
+            zero_division=0,
+        ),
+    }
+```
+
+## SQL Window Functions
+
+Window functions retain the original rows while computing statistics over related rows.
+
+```sql
+SELECT
+    user_id,
+    order_date,
+    amount,
+
+    ROW_NUMBER() OVER (
+        PARTITION BY user_id
+        ORDER BY order_date
+    ) AS order_number,
+
+    LAG(amount) OVER (
+        PARTITION BY user_id
+        ORDER BY order_date
+    ) AS previous_amount,
+
+    AVG(amount) OVER (
+        PARTITION BY user_id
+        ORDER BY order_date
+        ROWS BETWEEN 2 PRECEDING
+                 AND CURRENT ROW
+    ) AS rolling_3_order_mean
+
+FROM orders;
+```
+
+`ROW_NUMBER` assigns a unique sequential number within a partition.
+
+`RANK` assigns equal ranks to ties and leaves gaps.
+
+`DENSE_RANK` assigns equal ranks to ties without leaving gaps.
+
+`LAG` retrieves a value from a previous row in the ordered partition.
+
+## Inference Contract
+
+Training and inference should use the same preprocessing pipeline.
+
+```python
+def predict_records(
+    model,
+    records,
+    threshold=0.5,
+):
+    if not 0 <= threshold <= 1:
+        raise ValueError(
+            "threshold must be between 0 and 1"
+        )
+
+    frame = pd.DataFrame(records)
+
+    probabilities = (
+        model.predict_proba(frame)[:, 1]
+    )
+
+    predictions = (
+        probabilities >= threshold
+    ).astype(int)
+
+    return pd.DataFrame({
+        "probability": probabilities,
+        "prediction": predictions,
+    })
+```
+
+A prediction output should have a stable contract, including well-defined columns, valid probabilities, and deterministic threshold behavior.
+
+## Unit Testing
+
+Unit tests verify behavior of data-processing and inference functions independently of overall model accuracy.
+
+```python
+def test_invalid_threshold_raises():
+    with pytest.raises(
+        ValueError,
+    ):
+        validate_threshold(1.5)
+```
+
+```python
+def test_prediction_probability_range():
+    result = predict_records(
+        model,
+        records,
+    )
+
+    assert result[
+        "probability"
+    ].between(
+        0,
+        1,
+    ).all()
+```
+
+Tests are especially useful for:
+
+* invalid inputs
+* missing values
+* unseen categories
+* feature-schema changes
+* output contracts
+* save/load consistency
+
+## Model Persistence
+
+A fitted preprocessing pipeline and estimator can be persisted together.
+
+```python
+from pathlib import Path
+import joblib
+
+model_path = Path(
+    "models/pipeline.joblib"
+)
+
+model_path.parent.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+joblib.dump(
+    model,
+    model_path,
+)
+
+restored_model = joblib.load(
+    model_path
+)
+```
+
+Persisting the entire Pipeline preserves both the preprocessing parameters and the fitted estimator.
+
+Prediction consistency can be verified after loading:
+
+```python
+before = model.predict_proba(
+    X_test
+)[:, 1]
+
+after = restored_model.predict_proba(
+    X_test
+)[:, 1]
+
+assert np.allclose(
+    before,
+    after,
+)
+```
+
+Pickle-based model artifacts such as joblib files should only be loaded from trusted sources.
