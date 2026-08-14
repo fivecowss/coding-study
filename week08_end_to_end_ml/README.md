@@ -531,3 +531,311 @@ assert np.allclose(
 ```
 
 Pickle-based model artifacts such as joblib files should only be loaded from trusted sources.
+
+## End-to-End Model Selection
+
+A complete applied ML workflow should separate model development from final evaluation.
+
+```text
+feature table
+→ development / final-test split
+→ cross-validation
+→ model selection
+→ fit selected model on development data
+→ final test evaluation
+→ subgroup analysis
+→ model persistence
+```
+
+The final test set should not be used to select the model.
+
+## Multi-Metric Cross-Validation
+
+```python
+scoring = {
+    "roc_auc": "roc_auc",
+    "f1": "f1",
+}
+
+scores = cross_validate(
+    estimator=model,
+    X=X_dev,
+    y=y_dev,
+    cv=cv,
+    scoring=scoring,
+)
+
+mean_auc = (
+    scores["test_roc_auc"].mean()
+)
+
+sd_auc = (
+    scores["test_roc_auc"].std()
+)
+
+mean_f1 = (
+    scores["test_f1"].mean()
+)
+```
+
+Compare both average validation performance and variability across folds.
+
+## Candidate Model Comparison
+
+A simple baseline can be compared with a more flexible model.
+
+```python
+models = {
+    "logistic": logistic_pipeline,
+
+    "random_forest": Pipeline([
+        (
+            "preprocess",
+            preprocessor,
+        ),
+        (
+            "classifier",
+            RandomForestClassifier(
+                n_estimators=300,
+                min_samples_leaf=3,
+                random_state=42,
+            ),
+        ),
+    ]),
+}
+```
+
+Logistic Regression provides a strong linear baseline.
+
+Random Forest allows nonlinear effects and feature interactions.
+
+## Final Test Evaluation
+
+```python
+predictions = model.predict(
+    X_test
+)
+
+probabilities = (
+    model.predict_proba(
+        X_test
+    )[:, 1]
+)
+
+print(
+    classification_report(
+        y_test,
+        predictions,
+    )
+)
+
+test_auc = roc_auc_score(
+    y_test,
+    probabilities,
+)
+```
+
+Use probability scores for ROC AUC rather than thresholded class predictions.
+
+## Subgroup Diagnostics
+
+Overall metrics can hide failure in important subgroups.
+
+```python
+results = pd.DataFrame({
+    "group":
+        X_test[
+            "acquisition_channel"
+        ].reset_index(drop=True),
+
+    "y_true":
+        y_test.reset_index(drop=True),
+
+    "y_pred":
+        predictions,
+
+    "y_prob":
+        probabilities,
+})
+```
+
+Useful subgroup summaries include:
+
+```python
+group_summary = {
+    "n": len(group_frame),
+
+    "positive_rate":
+        group_frame[
+            "y_true"
+        ].mean(),
+
+    "precision":
+        precision_score(
+            group_frame["y_true"],
+            group_frame["y_pred"],
+            zero_division=0,
+        ),
+
+    "recall":
+        recall_score(
+            group_frame["y_true"],
+            group_frame["y_pred"],
+            zero_division=0,
+        ),
+
+    "f1":
+        f1_score(
+            group_frame["y_true"],
+            group_frame["y_pred"],
+            zero_division=0,
+        ),
+}
+```
+
+Always interpret subgroup metrics together with sample size and target prevalence.
+
+## SQL Feature Aggregation
+
+A prediction feature table should preserve the target population and use only historical data available at prediction time.
+
+```sql
+WITH eligible_orders AS (
+    SELECT
+        order_id,
+        user_id,
+        order_date,
+        amount
+    FROM orders
+    WHERE order_date <= DATE '2026-01-31'
+),
+
+order_features AS (
+    SELECT
+        user_id,
+        COUNT(DISTINCT order_id)
+            AS n_orders,
+        SUM(amount)
+            AS total_amount,
+        AVG(amount)
+            AS avg_amount,
+        MAX(order_date)
+            AS last_order_date
+    FROM eligible_orders
+    GROUP BY user_id
+)
+
+SELECT
+    u.user_id,
+    COALESCE(
+        f.n_orders,
+        0
+    ) AS n_orders,
+    COALESCE(
+        f.total_amount,
+        0.0
+    ) AS total_amount,
+    f.avg_amount,
+    DATE '2026-01-31'
+        - f.last_order_date
+        AS days_since_last_order
+FROM users AS u
+LEFT JOIN order_features AS f
+    ON u.user_id = f.user_id;
+```
+
+## Cross-Language Aggregation
+
+The same grouped analysis can be expressed in pandas, SQL, and R.
+
+```python
+summary = (
+    frame.groupby(
+        "acquisition_channel"
+    )
+    .agg(
+        n_users=(
+            "user_id",
+            "nunique",
+        ),
+        conversion_rate=(
+            "target",
+            "mean",
+        ),
+        avg_amount=(
+            "total_amount",
+            "mean",
+        ),
+    )
+    .reset_index()
+)
+```
+
+```sql
+SELECT
+    acquisition_channel,
+    COUNT(DISTINCT user_id)
+        AS n_users,
+    AVG(target)
+        AS conversion_rate,
+    AVG(total_amount)
+        AS avg_amount
+FROM feature_table
+GROUP BY acquisition_channel;
+```
+
+```r
+summary <- frame |>
+  summarise(
+    n_users =
+      n_distinct(user_id),
+
+    conversion_rate =
+      mean(target),
+
+    avg_amount =
+      mean(total_amount),
+
+    .by =
+      acquisition_channel
+  )
+```
+
+## Model Persistence
+
+Persist the complete fitted Pipeline so preprocessing and model parameters remain together.
+
+```python
+joblib.dump(
+    final_model,
+    model_path,
+)
+
+restored_model = joblib.load(
+    model_path
+)
+```
+
+Verify prediction consistency:
+
+```python
+before = (
+    final_model.predict_proba(
+        X_test
+    )[:, 1]
+)
+
+after = (
+    restored_model.predict_proba(
+        X_test
+    )[:, 1]
+)
+
+assert np.allclose(
+    before,
+    after,
+)
+```
+
+A persisted model should be accompanied by compatible code, dependencies, feature definitions, and evaluation information.
+````
